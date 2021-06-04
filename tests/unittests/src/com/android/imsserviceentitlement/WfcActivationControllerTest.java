@@ -51,14 +51,12 @@ import org.mockito.junit.MockitoRule;
 
 import java.lang.reflect.Field;
 
-
-
 // TODO(b/176127289) add tests
 @RunWith(AndroidJUnit4.class)
 public class WfcActivationControllerTest {
     @Rule public final MockitoRule rule = MockitoJUnit.rule();
     @Mock private TelephonyManager mTelephonyManager;
-    @Mock private WfcActivationApi mActivationApi;
+    @Mock private ImsEntitlementApi mActivationApi;
     @Mock private WfcActivationUi mActivationUi;
     @Mock private ConnectivityManager mConnectivityManager;
     @Mock private NetworkInfo mNetworkInfo;
@@ -77,12 +75,11 @@ public class WfcActivationControllerTest {
     public void setUp() throws Exception {
         mContext = spy(ApplicationProvider.getApplicationContext());
 
-        when(mActivationApi.getWebviewJsControllerName()).thenReturn(WEBVIEW_JS_CONTROLLER_NAME);
         when(mContext.getSystemService(TelephonyManager.class)).thenReturn(mTelephonyManager);
         when(mTelephonyManager.createForSubscriptionId(SUB_ID)).thenReturn(mTelephonyManager);
         setNetworkConnected(true);
 
-        Field field = EntitlementUtils.class.getDeclaredField("useDirectExecutorForTest");
+        Field field = EntitlementUtils.class.getDeclaredField("sUseDirectExecutorForTest");
         field.setAccessible(true);
         field.set(null, true);
     }
@@ -195,11 +192,7 @@ public class WfcActivationControllerTest {
 
         mWfcActivationController.evaluateEntitlementStatus();
 
-        verify(mActivationUi)
-                .showWebview(
-                        EMERGENCY_ADDRESS_WEB_URL,
-                        EMERGENCY_ADDRESS_WEB_DATA,
-                        WEBVIEW_JS_CONTROLLER_NAME);
+        verify(mActivationUi).showWebview(EMERGENCY_ADDRESS_WEB_URL, EMERGENCY_ADDRESS_WEB_DATA);
     }
 
     @Test
