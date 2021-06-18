@@ -35,23 +35,23 @@ public class EntitlementConfiguration {
     /** Default value of VoLTE/VoWifi/SMSoverIP entitlemenet status. */
     private static final int INCOMPATIBLE_STATE = 2;
 
-    private final EntitlementConfigurationsDataStore mConfigutationsDataStore;
+    private final EntitlementConfigurationsDataStore mConfigurationsDataStore;
 
     private XmlDoc mXmlDoc = new XmlDoc(null);
 
     public EntitlementConfiguration(Context context, int subId) {
-        mConfigutationsDataStore = new EntitlementConfigurationsDataStore(context, subId);
-        mConfigutationsDataStore.get().ifPresent(rawXml -> mXmlDoc = new XmlDoc(rawXml));
+        mConfigurationsDataStore = EntitlementConfigurationsDataStore.getInstance(context, subId);
+        mConfigurationsDataStore.get().ifPresent(rawXml -> mXmlDoc = new XmlDoc(rawXml));
     }
 
     /** Update VERS characteristics with given version and validity. */
     public void update(String rawXml) {
-        mConfigutationsDataStore.set(rawXml);
+        mConfigurationsDataStore.set(rawXml);
         mXmlDoc = new XmlDoc(rawXml);
     }
 
     /**
-     * Returns VoLTE entitlement status from the {@link EntitlementCharacteristicDataStore}. If no
+     * Returns VoLTE entitlement status from the {@link EntitlementConfigurationsDataStore}. If no
      * data exist then return the default value {@link #INCOMPATIBLE_STATE}.
      */
     public int getVolteStatus() {
@@ -64,7 +64,7 @@ public class EntitlementConfiguration {
     }
 
     /**
-     * Returns VoWiFi entitlement status from the {@link EntitlementCharacteristicDataStore}. If no
+     * Returns VoWiFi entitlement status from the {@link EntitlementConfigurationsDataStore}. If no
      * data exist then return the default value {@link #INCOMPATIBLE_STATE}.
      */
     public int getVoWifiStatus() {
@@ -77,7 +77,7 @@ public class EntitlementConfiguration {
     }
 
     /**
-     * Returns SMSoIP entitlement status from the {@link EntitlementCharacteristicDataStore}. If no
+     * Returns SMSoIP entitlement status from the {@link EntitlementConfigurationsDataStore}. If no
      * data exist then return the default value {@link #INCOMPATIBLE_STATE}.
      */
     public int getSmsOverIpStatus() {
@@ -90,7 +90,7 @@ public class EntitlementConfiguration {
     }
 
     /**
-     * Returns token stored in the {@link EntitlementCharacteristicDataStore} if it is in validity
+     * Returns token stored in the {@link EntitlementConfigurationsDataStore} if it is in validity
      * period. Returns {@link Optional#empty()} if the token was expired or the value of token
      * validity not positive.
      */
@@ -101,7 +101,7 @@ public class EntitlementConfiguration {
     }
 
     private boolean isTokenInValidityPeriod() {
-        long queryTimeMillis = mConfigutationsDataStore.getQueryTimeMillis();
+        long queryTimeMillis = mConfigurationsDataStore.getQueryTimeMillis();
         long tokenValidityMillis = TimeUnit.SECONDS.toMillis(getTokenValidity());
 
         if (queryTimeMillis <= 0) {
@@ -115,7 +115,7 @@ public class EntitlementConfiguration {
             return true;
         }
 
-        return System.currentTimeMillis() - queryTimeMillis < tokenValidityMillis;
+        return (System.currentTimeMillis() - queryTimeMillis) < tokenValidityMillis;
     }
 
     /**
@@ -125,6 +125,24 @@ public class EntitlementConfiguration {
     public long getTokenValidity() {
         return mXmlDoc.get(
                 ResponseXmlNode.TOKEN,
+                ResponseXmlAttributes.VALIDITY,
+                null)
+                .map(Long::parseLong)
+                .orElse(DEFAULT_VALIDITY);
+    }
+
+    /** Returns version stored in the {@link EntitlementCharacteristicDataStore}. */
+    public Optional<String> getVersion() {
+        return mXmlDoc.get(ResponseXmlNode.VERS, ResponseXmlAttributes.VERSION, null);
+    }
+
+    /**
+     * Returns the validity of the version, in seconds. The validity is counted from the time it is
+     * received by the client. If no data exist then returns default value 0.
+     */
+    public long getVersValidity() {
+        return mXmlDoc.get(
+                ResponseXmlNode.VERS,
                 ResponseXmlAttributes.VALIDITY,
                 null)
                 .map(Long::parseLong)
@@ -204,5 +222,33 @@ public class EntitlementConfiguration {
         //   - VoWiFi.EntitlementStatus=2 (INCOMPATIBLE_STATE)
         //   - SMSoIP.EntitlementStatus=2 (INCOMPATIBLE_STATE)
         update(null);
+    }
+
+    /** Reverts to the default configurations except the version and validity. */
+    public void resetConfigsExceptVers() {
+        String rawXml =
+                "<wap-provisioningdoc version=\"1.1\">"
+                + "  <characteristic type=\"VERS\">"
+                + "    <parm name=\"version\" value=\"" + getVersion() + "\"/>"
+                + "    <parm name=\"validity\" value=\"" + getVersValidity() + "\"/>"
+                + "  </characteristic>"
+                + "  <characteristic type=\"TOKEN\">"
+                + "    <parm name=\"token\" value=\"\"/>"
+                + "    <parm name=\"validity\" value=\"0\"/>"
+                + "  </characteristic>"
+                + "  <characteristic type=\"APPLICATION\">"
+                + "    <parm name=\"AppID\" value=\"ap2003\"/>"
+                + "    <parm name=\"EntitlementStatus\" value=\"2\"/>"
+                + "  </characteristic>"
+                + "  <characteristic type=\"APPLICATION\">"
+                + "    <parm name=\"AppID\" value=\"ap2004\"/>"
+                + "    <parm name=\"EntitlementStatus\" value=\"2\"/>"
+                + "  </characteristic>"
+                + "  <characteristic type=\"APPLICATION\">"
+                + "    <parm name=\"AppID\" value=\"ap2005\"/>"
+                + "    <parm name=\"EntitlementStatus\" value=\"2\"/>"
+                + "  </characteristic>"
+                + "</wap-provisioningdoc>";
+        update(rawXml);
     }
 }
